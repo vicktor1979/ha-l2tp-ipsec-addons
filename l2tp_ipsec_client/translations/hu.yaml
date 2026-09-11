@@ -1,0 +1,48 @@
+configuration:
+  diagnostics_only:
+    name: Csak diagnosztika
+    description: Első indításkor maradjon bekapcsolva. Kernel- és jogosultságpróbát
+      végez, VPN-csatlakozás nélkül.
+  vpn_server:
+    name: VPN-kiszolgáló IPv4-címe
+    description: A Windows VPN-beállításában megadott kiszolgáló IPv4-címe; nem az
+      adapter címe.
+  vpn_username:
+    name: VPN-felhasználónév
+    description: A szolgáltatótól kapott felhasználónév, szükség esetén a tartománnyal
+      együtt.
+  vpn_password:
+    name: VPN-jelszó
+    description: A felhasználóhoz tartozó jelszó. Csak itt add meg, ne a GitHubon.
+  vpn_psk:
+    name: IPsec előre megosztott kulcs (PSK)
+    description: A Windows L2TP/IPsec speciális beállításánál megadott közös kulcs.
+  adapter_ip:
+    name: C6 adapter IPv4-címe
+    description: A távoli adapter VPN-en keresztül elérhető címe.
+  adapter_port:
+    name: C6 adapter TCP-portja
+    description: Az adapter adatportja, rendszerint 9999. Nem az ebusd 8888-as API-portja.
+  ppp_auth:
+    name: PPP-hitelesítés
+    description: Alapból MS-CHAPv2. Csak a kiszolgáló dokumentált igénye szerint módosítsd.
+  legacy_compatibility:
+    name: Régi IPsec-algoritmusok engedélyezése
+    description: Gyengébb MODP1024/3DES kompatibilitási ajánlatok. Csak indokolt régi
+      szerverhez kapcsold be.
+  mtu:
+    name: PPP MTU/MRU
+    description: 'Alapérték: 1400 bájt.'
+  retry_delay:
+    name: Várakozás újrapróbálkozás előtt
+    description: Másodpercben; alapérték 60.
+  max_retries:
+    name: Kapcsolódási próbák felső korlátja
+    description: Egy addonindítás alatt összesen ennyi VPN-ciklus indulhat. Felismert
+      hitelesítési hiba után leáll.
+  allowed_clients:
+    name: Engedélyezett TCP-klienscímek
+    description: IPv4-címek vagy CIDR-ek. Alapból a HA szokásos belső addonhálózata;
+      ne nyisd ki az internetre.
+network:
+  9999/tcp: Belső C6 TCP-átjáró. LAN-ra publikálása alapból kikapcsolva; hagyd üresen.

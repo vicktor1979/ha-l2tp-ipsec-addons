@@ -1,0 +1,47 @@
+configuration:
+  diagnostics_only:
+    name: Diagnostics only
+    description: Start here. Tests basic kernel/device permissions without connecting
+      to the VPN.
+  vpn_server:
+    name: VPN server IPv4 address
+    description: The IPv4 address used in the Windows VPN connection.
+  vpn_username:
+    name: VPN username
+    description: The provider-assigned username, including a domain if required.
+  vpn_password:
+    name: VPN password
+    description: Enter credentials here in Home Assistant, never in GitHub.
+  vpn_psk:
+    name: IPsec pre-shared key
+    description: The PSK from the Windows advanced L2TP/IPsec settings.
+  adapter_ip:
+    name: C6 adapter IPv4 address
+    description: The remote adapter address reachable through the VPN.
+  adapter_port:
+    name: C6 adapter TCP port
+    description: Usually 9999; not the ebusd API port 8888.
+  ppp_auth:
+    name: PPP authentication
+    description: MS-CHAPv2 by default. Change only to match the VPN server.
+  legacy_compatibility:
+    name: Allow legacy IPsec proposals
+    description: Adds weaker MODP1024 / 3DES proposals. Enable only when required
+      by an older server.
+  mtu:
+    name: PPP MTU/MRU
+    description: 'Default: 1400 bytes.'
+  retry_delay:
+    name: Reconnect delay
+    description: Seconds between attempts, default 60.
+  max_retries:
+    name: Connection attempt limit
+    description: Maximum VPN cycles per addon start. Stops on detected authentication
+      failures.
+  allowed_clients:
+    name: Allowed TCP clients
+    description: 'IPv4 addresses or CIDRs. Default: usual HA internal addon network;
+      do not expose publicly.'
+network:
+  9999/tcp: Internal C6 TCP gateway. Host publication is disabled by default; leave
+    blank.
