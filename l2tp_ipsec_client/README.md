@@ -1,12 +1,9 @@
-# L2TP/IPsec Client – C6 átjáró
+# L2TP/IPsec Client – C6 átjáró 0.2.0
 
-Kísérleti, IPv4-es L2TP/IPsec kliens Home Assistant OS-hez, az eBUS C6 adapter
-TCP-kapcsolatának közvetítésére. Kezeli a PSK + felhasználónév + jelszó
-bejelentkezést. A teljes HA alapértelmezett hálózati útvonalát nem módosítja.
+Kísérleti, kernel-PPP nélküli Home Assistant-addon távoli eBUS C6 adapterhez.
 
-**Első indítás: csak diagnosztika.** A hiányzó kernel-PPP/IPsec támogatást
-az addon nem tudja pótolni. A széles hardver-/kerneljogosultságot igénylő
-első prototípust telepítés előtt át kell nézni.
+A régi `CONFIG_PPP=n` problémát userspace VPN-motorral kerüli meg. TUN-t használ, a VPN és az adapter /32 útvonala a saját konténerben marad. Nem általános VPN-útválasztó az összes HA-alkalmazás számára.
 
-Telepítés: a repository gyökerének README fájljában.
-Beállítások és hibakeresés: az addon Dokumentáció lapján.
+Első indítás: **`diagnostics_only: true`**, VPN-titkok nélkül, Védett móddal. A teljes telepítési és használati leírás a **Dokumentáció** lapon, illetve a [DOCS.md](DOCS.md) fájlban.
+
+A teljes Docker-build, HA OS-telepítés és valódi Giganet VPN-kapcsolat nincs még igazolva. Csak kísérleti teszteléshez. Az `amd64` és `aarch64` szerepel a manifestben; 32 bites ARM nem.

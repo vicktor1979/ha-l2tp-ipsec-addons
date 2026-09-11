@@ -1,48 +1,47 @@
 configuration:
   diagnostics_only:
     name: Csak diagnosztika
-    description: Első indításkor maradjon bekapcsolva. Kernel- és jogosultságpróbát
-      végez, VPN-csatlakozás nélkül.
+    description: TUN és motor ellenőrzése. Igaz értéknél nincs VPN-bejelentkezés;
+      elsőre maradjon bekapcsolva.
   vpn_server:
-    name: VPN-kiszolgáló IPv4-címe
-    description: A Windows VPN-beállításában megadott kiszolgáló IPv4-címe; nem az
-      adapter címe.
+    name: VPN-szerver IPv4-címe
+    description: A Windows-kapcsolat szervercíme. Itt IPv4 kell, nem URL vagy domainnév.
   vpn_username:
     name: VPN-felhasználónév
-    description: A szolgáltatótól kapott felhasználónév, szükség esetén a tartománnyal
-      együtt.
+    description: A meglévő L2TP/IPsec felhasználóneved. Ne tedd GitHubra.
   vpn_password:
     name: VPN-jelszó
-    description: A felhasználóhoz tartozó jelszó. Csak itt add meg, ne a GitHubon.
+    description: A felhasználóhoz tartozó jelszó, nem az IPsec megosztott kulcs.
   vpn_psk:
-    name: IPsec előre megosztott kulcs (PSK)
-    description: A Windows L2TP/IPsec speciális beállításánál megadott közös kulcs.
+    name: IPsec megosztott kulcs (PSK)
+    description: A Windowsban külön megadott L2TP/IPsec közös kulcs.
   adapter_ip:
-    name: C6 adapter IPv4-címe
-    description: A távoli adapter VPN-en keresztül elérhető címe.
+    name: C6 adapter távoli IPv4-címe
+    description: A VPN-en elérhető adapter belső címe. Csak erre készül /32 útvonal.
   adapter_port:
-    name: C6 adapter TCP-portja
-    description: Az adapter adatportja, rendszerint 9999. Nem az ebusd 8888-as API-portja.
+    name: Adapter TCP-portja
+    description: Alapértelmezés 9999. Az addon helyi proxyportja ettől függetlenül
+      9999.
   ppp_auth:
     name: PPP-hitelesítés
-    description: Alapból MS-CHAPv2. Csak a kiszolgáló dokumentált igénye szerint módosítsd.
+    description: A 0.2.0 kizárólag az mschapv2 értéket támogatja. A többi örökölt
+      választás hibával leáll.
   legacy_compatibility:
-    name: Régi IPsec-algoritmusok engedélyezése
-    description: Gyengébb MODP1024/3DES kompatibilitási ajánlatok. Csak indokolt régi
-      szerverhez kapcsold be.
+    name: Régi kompatibilitási kapcsoló – ne használd
+    description: A 0.2.0-ban nem támogatott. Maradjon false/kikapcsolva.
   mtu:
-    name: PPP MTU/MRU
-    description: 'Alapérték: 1400 bájt.'
+    name: VPN MTU
+    description: 1280–1460; alapérték 1400. Csak az addon TUN-interfészét érinti.
   retry_delay:
-    name: Várakozás újrapróbálkozás előtt
-    description: Másodpercben; alapérték 60.
+    name: Újrapróbálkozások közötti idő
+    description: Másodperc, minimum 30. Alapból 60.
   max_retries:
-    name: Kapcsolódási próbák felső korlátja
-    description: Egy addonindítás alatt összesen ennyi VPN-ciklus indulhat. Felismert
-      hitelesítési hiba után leáll.
+    name: Legfeljebb ennyi kapcsolódási kísérlet
+    description: Egy addonindításon belüli korlát. Az azonosított hitelesítési hiba
+      azonnali leállást okoz.
   allowed_clients:
-    name: Engedélyezett TCP-klienscímek
-    description: IPv4-címek vagy CIDR-ek. Alapból a HA szokásos belső addonhálózata;
-      ne nyisd ki az internetre.
+    name: Engedélyezett TCP-kliensek
+    description: IPv4/CIDR lista. Másik HA-géphez annak helyi IP-címét /32 végződéssel
+      add hozzá.
 network:
-  9999/tcp: Belső C6 TCP-átjáró. LAN-ra publikálása alapból kikapcsolva; hagyd üresen.
+  9999/tcp: C6 TCP-átjáró. Csak másik HA-géphez tedd közzé, internetre ne.

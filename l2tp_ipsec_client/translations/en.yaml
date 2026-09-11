@@ -1,47 +1,46 @@
 configuration:
   diagnostics_only:
     name: Diagnostics only
-    description: Start here. Tests basic kernel/device permissions without connecting
-      to the VPN.
+    description: Test TUN and engine startup without VPN login. Keep enabled for the
+      first run.
   vpn_server:
     name: VPN server IPv4 address
-    description: The IPv4 address used in the Windows VPN connection.
+    description: The Windows VPN server address; an IPv4 address, not a URL or hostname.
   vpn_username:
     name: VPN username
-    description: The provider-assigned username, including a domain if required.
+    description: Your existing VPN username. Never upload it to GitHub.
   vpn_password:
     name: VPN password
-    description: Enter credentials here in Home Assistant, never in GitHub.
+    description: The user password, not the IPsec shared key.
   vpn_psk:
-    name: IPsec pre-shared key
-    description: The PSK from the Windows advanced L2TP/IPsec settings.
+    name: IPsec pre-shared key (PSK)
+    description: The separately configured L2TP/IPsec shared key.
   adapter_ip:
-    name: C6 adapter IPv4 address
-    description: The remote adapter address reachable through the VPN.
+    name: Remote C6 IPv4 address
+    description: The adapter address reachable over VPN. Only this /32 is routed.
   adapter_port:
-    name: C6 adapter TCP port
-    description: Usually 9999; not the ebusd API port 8888.
+    name: Adapter TCP port
+    description: Default 9999. The local addon relay always listens on container port
+      9999.
   ppp_auth:
     name: PPP authentication
-    description: MS-CHAPv2 by default. Change only to match the VPN server.
+    description: Version 0.2.0 supports mschapv2 only. Other retained migration values
+      are rejected.
   legacy_compatibility:
-    name: Allow legacy IPsec proposals
-    description: Adds weaker MODP1024 / 3DES proposals. Enable only when required
-      by an older server.
+    name: Legacy compatibility – unsupported
+    description: Not supported by 0.2.0. Keep disabled/false.
   mtu:
-    name: PPP MTU/MRU
-    description: 'Default: 1400 bytes.'
+    name: VPN MTU
+    description: 1280–1460; default 1400. Applies only to the addon TUN interface.
   retry_delay:
-    name: Reconnect delay
-    description: Seconds between attempts, default 60.
+    name: Retry delay
+    description: Seconds, minimum 30, default 60.
   max_retries:
-    name: Connection attempt limit
-    description: Maximum VPN cycles per addon start. Stops on detected authentication
-      failures.
+    name: Maximum connection attempts
+    description: Per addon start. Recognized authentication errors stop immediately.
   allowed_clients:
     name: Allowed TCP clients
-    description: 'IPv4 addresses or CIDRs. Default: usual HA internal addon network;
-      do not expose publicly.'
+    description: IPv4/CIDR list. For another HA host, add its local IPv4 address with
+      /32.
 network:
-  9999/tcp: Internal C6 TCP gateway. Host publication is disabled by default; leave
-    blank.
+  9999/tcp: C6 TCP relay. Publish only for another trusted HA host, never to the Internet.

@@ -1,193 +1,47 @@
-# L2TP/IPsec – Home Assistant addon
+# L2TP/IPsec C6 átjáró Home Assistanthoz – 0.2.0
 
-**0.1.0 · kísérleti · amd64 · L2TP/IPsec + PSK + felhasználónév/jelszó**
+**Kísérleti forráscsomag. Nem igazolt még valódi HA OS-en vagy Giganet VPN-szerverrel.**
 
-A cél egy távoli eBUS C6 adapter elérése az ebusd addonból a meglévő
-L2TP/IPsec VPN-en keresztül. Nem kell hozzá külön Windows-gép.
-
-Ez új implementáció, amelyhez az `ubergarm/l2tp-ipsec-vpn-client` projekt
-adta a kiinduló ötletet. Nem az elavult Docker-kép változatlan becsomagolása,
-és nem tinc- vagy WireGuard-kliens.
-
-> **Tesztelési állapot:** a Python-kód és a konfigurációgenerálás offline
-> ellenőrzése megtörtént. A Docker-kép buildje, a Home Assistant OS-en történő
-> indulás és a tényleges VPN-/C6-kapcsolat ebben a kiadásban még nincs igazolva.
-> Első indításkor az addon csak diagnosztikát végez. Lásd: `TEST_REPORT.md`.
-
-## Felépítés
+Ez a változat a `CONFIG_PPP=n` korlát megkerülésére készült: a veepin L2TP/IPsec-könyvtárával a PPP-t a felhasználói program kezeli, nem a Linux kernel. TUN-hozzáférés továbbra is szükséges.
 
 ```text
-ebusd addon
-       │ a HA belső addonhálózata, TCP 9999
-       ▼
-L2TP/IPsec Client – C6 átjáró
-       │ saját hálózati névtér, L2TP/IPsec kapcsolat
-       ▼
-VPN-szerver → távoli C6 adapter TCP-portja
+ebusd addon → C6 átjáró addon TCP 9999 → L2TP/IPsec VPN → távoli C6 TCP-port
 ```
 
-Az addon **nem általános VPN-útválasztó a teljes HA számára**. Kizárólag a
-beállított adapter TCP-kapcsolatát közvetíti. Nem ad hozzá útvonalat a HA
-gazdarendszeréhez, nem állítja át a HA DNS-ét, és nem módosítja az alapértelmezett
-internetes átjárót. A saját hálózati névtér nem jelent teljes biztonsági
-elszigetelést: az első prototípus emelt kernel-/hardverjogosultságot kér.
+Nem általános VPN az összes HA-komponens számára. Csak a beállított adapter egy TCP-portjához közvetít kapcsolatot. A VPN és az útvonalak a saját konténer hálózati névterében maradnak; a HA gazdarendszerének default route-ját vagy DNS-ét nem módosítja.
 
-## GitHubra feltöltés
+## Már telepítetted a 0.1.0-t?
 
-1. Hozz létre egy új, nyilvános GitHub repositoryt, például
-   `ha-l2tp-ipsec-addons` néven. A fájlokban nincsenek valódi bejelentkezési adatok.
-2. Csomagold ki a kapott ZIP-et. A kicsomagolt mappa **tartalmát** töltsd fel a
-   repository gyökerébe az **Add file → Upload files** felületen.
-   Teljesen üres tárolónál az **uploading an existing file** hivatkozás vezet ide.
-3. A gyökérben közvetlenül látszódjon a `repository.yaml` és a
-   `l2tp_ipsec_client` mappa. Ne magát a ZIP-et töltsd fel, és ne legyen plusz
-   `ha-l2tp-ipsec-addons` mappaszint.
-4. Mentsd a fájlokat (**Commit changes**).
+A teljes frissítési leírás: **[UPGRADE.md](UPGRADE.md)**. Ugyanazt a GitHub-tárolót és `l2tp_ipsec_client` azonosítót használd. Ne csak a verziószámot írd át: az egész csomagot cseréld.
 
-A `repository.yaml` szándékosan nem tartalmaz felhasználónévhez kötött URL-t.
-A feltöltés előtt nem szükséges átírni. A `.github/workflows/build.yml` opcionális
-ellenőrzést futtat GitHub Actionsben; nem publikál képet, és nem kér VPN-titkokat.
-A HA a Dockerfile-ból helyben építi fel az addont.
+## Első telepítés
 
-## Telepítés a Home Assistantban
+A tároló teljes tartalma kerüljön a saját nyilvános GitHub-repositoryd gyökerébe. A `repository.yaml` maradjon gyökérszinten, mellette a `l2tp_ipsec_client/` mappa. A repository címét a Home Assistant alkalmazás-/bővítményáruházában a Tárolók menüben add hozzá; nem HACS-integráció.
 
-**Beállítások → Bővítmények / Alkalmazások → Áruház → ⋮ → Tárolók**
+A telepítési és beállítási útmutató az addonban is megjelenő **[DOCS.md](l2tp_ipsec_client/DOCS.md)**.
 
-Add hozzá a saját repositoryd címét:
+## Követelmények és korlátok
 
-```text
-https://github.com/SAJAT_FELHASZNALONEV/ha-l2tp-ipsec-addons
-```
+- HA Supervisor addonrendszer; a manifest `amd64` és `aarch64` architektúrát engedélyez. Ezek nem tesztelt kompatibilitási tanúsítások; 32 bites ARM nincs engedélyezve.
+- `/dev/net/tun`, `NET_ADMIN`, `NET_RAW`. Nincs `full_access`, kernelmodul-betöltés vagy host hálózat. Az AppArmor engedélyezett.
+- IPv4 VPN-szervercím és IPv4 adaptercím. Ebben a verzióban szervernév nem adható meg.
+- IKEv1 + PSK, NAT-T, L2TP és MS-CHAPv2. A szerver pontos titkosítási/hitelesítési kompatibilitását tesztelni kell. PAP/CHAP és a régi `legacy_compatibility` kapcsoló nincs implementálva.
+- Egyszerre egy C6-kliens; nincs önálló eBUS-lekérdezés vagy automatikus adapterpoll.
 
-Frissítsd az áruházat, nyisd meg az **L2TP/IPsec Client – C6 átjáró** elemet,
-és telepítsd. Ez a Supervisor/HA OS addonrendszerét igényli; HACS-ba nem való.
+A felhasználónév, jelszó és PSK csak a Home Assistant addonbeállításaiba kerüljön. **Nyilvános GitHub-fájlba, Actions-titokba vagy hibajegybe nem kell és nem szabad beírni.**
 
-## Első indítás: csak diagnosztika
+## Ellenőrzések
 
-Előbb készíts HA-mentést, és olvasd el a `SECURITY.md` fájlt.
+A csomag készítésekor 42 Python-teszt és 2, csak szabványos könyvtárat használó Go-bemenetellenőrzési teszt sikeres volt. A Python-csomagban valódi helyi TCP-relétesztek is szerepelnek, de a TUN/VPN-események szimuláltak. **A teljes veepin-motor lefordítása, Docker-build, HA-telepítés és Giganet-kapcsolat nem történt meg.** Részletek: [TEST_REPORT.md](TEST_REPORT.md).
 
-A kísérleti addon `full_access: true`, `kernel_modules: true` és
-`apparmor: false` beállítású. Emiatt az addon adatlapján a **Védett mód /
-Protection mode** kikapcsolása szükséges a tényleges kernel-/eszközhozzáféréshez.
-Ez nem pusztán egy hálózati engedély: széles hardver-/kerneljogosultságot ad.
-Csak saját, átnézett kódnál és a kockázat ismeretében használd.
-
-A konfigurációban egyelőre maradjon:
-
-```yaml
-diagnostics_only: true
-```
-
-A VPN-adatok ebben az üzemmódban üresek maradhatnak. Indítsd el az addont,
-és nyisd meg a naplóját.
-
-A sikeres alapellenőrzést ez jelzi:
-
-```text
-PPP_KERNEL_OK
-XFRM_POLICY_OK
-DIAGNOSTICS_OK
-```
-
-A diagnosztika a meglévő kernelmodulok betöltését, egy rövid életű PPP-interfész
-létrehozását és egy forgalomhoz nem kapcsolt tűzfallánc kipróbálását végzi.
-**Nem kapcsolódik a VPN-hez, és nem ellenőrzi a jelszavak helyességét.**
-A sikeres ellenőrzés után a folyamat futva marad, de VPN-kapcsolat még nincs.
-
-Ha PPP-/XFRM-/policy-hiba jelenik meg, először azt kell tisztázni. A konténer
-nem tud a HA OS kerneléből hiányzó drivert önmagában pótolni. Ha a HA OS-ben
-nincs megfelelő támogatás, ehhez a megoldáshoz más kernel vagy külön Linux
-rendszer szükséges; a diagnosztika sikerét előre nem szabad feltételezni.
-
-## VPN és C6 beállítása
-
-Sikeres diagnosztika után a **HA addon konfigurációjában** add meg a valódi
-adatokat, majd állítsd át a `diagnostics_only` értékét. **Ne a GitHubon szerkeszd
-be a jelszavakat!** A címek lent csak dokumentációs példák.
-
-```yaml
-diagnostics_only: false
-vpn_server: "203.0.113.20"
-vpn_username: "SAJAT_VPN_FELHASZNALO"
-vpn_password: "SAJAT_VPN_JELSZO"
-vpn_psk: "SAJAT_IPSEC_MEGOSZTOTT_KULCS"
-adapter_ip: "192.168.50.60"
-adapter_port: 9999
-ppp_auth: mschapv2
-legacy_compatibility: false
-mtu: 1400
-retry_delay: 60
-max_retries: 3
-allowed_clients:
-  - "172.30.32.0/23"
-  - "127.0.0.1/32"
-```
-
-A `vpn_server` a Windowsban használt VPN-kiszolgáló **IPv4-címe**. A `vpn_psk`
-a Windows L2TP/IPsec speciális beállításainál megadott előre megosztott kulcs.
-Az `adapter_ip` ettől különböző, VPN-en át elérhető C6-cím. Az első verzió nem
-fogad el DNS-nevet vagy IPv6-címet ebben a két mezőben.
-
-A maradék beállítás magyarázata a `l2tp_ipsec_client/DOCS.md` fájlban és az addon
-Dokumentáció lapján található. Mentsd a konfigurációt, és indítsd újra az addont.
-
-## ebusd beállítása
-
-A VPN-addon **Információ / Info** lapján másold ki a **Hostnév / Hostname** mezőt.
-A sikeres VPN-indulás naplója is kiír egy ebusd mintát; a hostnevet ellenőrizd
-az adatlapon. GitHubról telepítve a repositoryhoz tartozó előtag változó.
-
-Például, kizárólag szemléltetésként:
-
-```yaml
-network_device: "ens:12345678-l2tp-ipsec-client:9999"
-```
-
-A tényleges `12345678-l2tp-ipsec-client` helyett **a saját addonod hostneve kell**.
-Nem a VPN-szerver és nem közvetlenül a C6 IP-címét adod meg az ebusd-nek.
-A Vaillant integráció továbbra is a meglévő ebusd addonhoz kapcsolódik.
-
-Az addon hálózati beállításainál a 9999-es port LAN-ra publikálását hagyd
-kikapcsolva. A HA belső addonhálózatában így is használható. Az alap hozzáférési
-lista a szokásos `172.30.32.0/23` belső címtartományt és a loopbacket engedi;
-eltérő, egyedileg kialakított addonhálózatnál ezt módosítani kell.
-
-Naplójelzések:
-
-| Jelzés | Amit igazol |
-|---|---|
-| `DIAGNOSTICS_OK` | Az alap kernel-/jogosultságpróbák sikerültek; nincs VPN-próba. |
-| `IPSEC_UP` | Létrejött az IPsec transport SA. |
-| `VPN_UP` | Létrejött a PPP-interfész és kapott IPv4-címet. |
-| `PROXY_READY` | Elindult a belső TCP-átjáró; az adapter elérése még nem bizonyított. |
-| `C6_TCP_CONNECTED` | Egy tényleges klienskapcsolat során az adapter TCP-portja válaszolt. |
-
-Az eBUS-jel és a Vaillant-adatok helyességét külön az **ebusd naplójában** kell
-ellenőrizni. A TCP-siker önmagában nem bizonyítja a kazánkommunikáció működését.
-Kezdetben csak olvasással tesztelj; működő fűtési vezérlést ne cserélj le egy
-igazolatlan VPN-es kapcsolatra.
-
-## Frissítés / visszaállás
-
-Új kiadásnál a forrásfájlokat és az addon `config.yaml` fájljában a `version`
-értékét is frissítsd a GitHubon, majd keress frissítést a HA áruházában.
-Az automatikus indítást csak sikeres helyszíni teszt után kapcsold be.
-Az első próbákhoz a Watchdogot hagyd kikapcsolva, hogy ne kerülje meg a
-beépített próbálkozási korlátot.
-
-Leállításkor a saját PPP-/IPsec-kapcsolat és proxy leáll. A HA útvonalait
-nem kellett módosítani, tehát azokat nem kell helyreállítani. A diagnosztika
-által betöltött, más folyamatokkal is megosztható kernelmodulokat az addon
-szándékosan nem távolítja el.
+A `.github/workflows/build.yml` feltöltés után elvégezheti a teljes amd64 Docker-buildet és a jelszó nélküli TUN-diagnosztikát GitHub Actions alatt. A sikeres CI sem jelenti a Giganet-kapcsolat igazolását.
 
 ## Források
 
-- Kiinduló projekt: https://github.com/ubergarm/l2tp-ipsec-vpn-client
-- HA addon/app konfiguráció: https://developers.home-assistant.io/docs/apps/configuration/
-- HA repository: https://developers.home-assistant.io/docs/apps/repository/
-- HA belső hálózat: https://developers.home-assistant.io/docs/apps/communication/
-- strongSwan: https://docs.strongswan.org/docs/latest/config/strongswanConf.html
-- IPsec-konfiguráció: https://manpages.debian.org/bookworm/strongswan-starter/ipsec.conf.5.en.html
-- PSK-formátum: https://manpages.debian.org/bookworm/strongswan-starter/ipsec.secrets.5.en.html
-- PPP: https://docs.kernel.org/networking/ppp_generic.html
-- ebusd adaptercím: https://github.com/john30/ebusd/wiki/2.-Run
+- Home Assistant konfiguráció: https://developers.home-assistant.io/docs/apps/configuration/
+- Home Assistant belső kommunikáció: https://developers.home-assistant.io/docs/apps/communication/
+- veepin L2TP-motor: https://github.com/xen0bit/veepin
+- veepin L2TP-dokumentáció: https://github.com/xen0bit/veepin/blob/main/doc/usage/l2tp.md
+- Rögzített upstream commit: `6c37e3691c326e54956cea042e2df67d3717e7a4` (`v0.9.6`).
+
+A biztonsági tudnivalókat a [SECURITY.md](SECURITY.md), a licenceket a [NOTICE.md](NOTICE.md) foglalja össze.

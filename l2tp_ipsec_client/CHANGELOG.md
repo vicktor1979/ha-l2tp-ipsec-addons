@@ -1,16 +1,17 @@
-# 0.1.0
+# 0.2.0 – 2026-09-11 – KÍSÉRLETI
 
-Első kísérleti változat, nem éles üzemi kiadás.
+- strongSwan/xl2tpd/pppd helyett veepin L2TP/IPsec könyvtár + kisméretű Go-illesztő.
+- Nincs `/dev/ppp`, kernel-PPP, kernel-L2TP vagy XFRM-követelmény; TUN továbbra is kell.
+- Új TUN-/motor-diagnosztika; a régi félrevezető `/dev/ppp` hiba megszűnik a forrásból.
+- Nincs teljes hardverhozzáférés és kernelmodul-betöltés; AppArmor visszakapcsolva.
+- A C6 TCP-kapcsolata a VPN-interfészhez és forráscímhez kötött, adapter /32 útvonallal.
+- A HA-gazdarendszer hálózata/DNS-e változatlan; alapból nincs LAN-portközzététel.
+- Privát pipe-on átadott titkok, naplómaszkolás, behatárolt újrapróbálkozás, egy aktív C6-kliens.
+- `amd64` mellett `aarch64` manifestengedély. A teljes build/futtatás még nincs igazolva egyik architektúrán sem.
+- 42 Python-teszt, 2 önálló Go-bemenetellenőrzési teszt; valódi VPN- és HA OS-teszt még nincs.
 
-- Alpine 3.23 alap, strongSwan, xl2tpd és pppd.
-- Home Assistant GUI-konfiguráció, magyar és angol mezőleírások.
-- Első indításkor PPP-/XFRM-/policy-kernel- és jogosultságpróba.
-- Saját addonhálózat és egyetlen C6 TCP-célpont közvetítése.
-- Nincs host-network, HA-default-route csere vagy HA-DNS módosítás.
-- PPP-hez kötött kimenő socket és konténeren belüli forgalmi védelmek.
-- Korlátozott újracsatlakozás, hitelesítési hiba utáni leállás.
-- Hitelesítési adatok privát fájlokban, ismert értékek kitakarása a naplóban.
-- Offline tesztek és opcionális GitHub Actions buildellenőrzés.
+**Kompatibilitási változás:** `ppp_auth` csak `mschapv2`, `legacy_compatibility` csak `false`. Az új motor algoritmusait a régi kapcsoló nem módosítja. Frissítés előtt olvasd el a DOCS.md és a gyökérszintű UPGRADE.md fájlt.
 
-Még ellenőrizendő: Docker-build, Supervisor-telepítés, HA OS kernel, VPN-szerver
-kompatibilitás, C6 adatkapcsolat, valódi tunnel-leállási/újracsatlakozási tesztek.
+# 0.1.0 – korábbi prototípus
+
+amd64, strongSwan + xl2tpd + pppd; kernel-PPP-támogatást igényelt. A felhasználó HA OS-én `CONFIG_PPP=n`, ezért ott ez az adatút nem használható. A jogosultsági hibaszöveg nem különböztette meg megfelelően a hiányzó kernel-támogatást.
