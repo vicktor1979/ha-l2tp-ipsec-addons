@@ -1,3 +1,14 @@
+# 0.2.1 – 2026-09-14
+
+* Adapter-IP nélkül használható egyszeri `vpn_test` mód.
+* Külön `discover` mód: sikeres VPN után explicit távoli CIDR-ekben
+  korlátozott TCP connect/close keresés; logolt találatok; nincs auto-kiválasztás.
+* IKEv1 fejléc-metaadatok opcionális, helyi konténeren belüli naplózása.
+* A kétszer kiírt motorhiba egyik példánya eltávolítva.
+* Proxy esetén marad a /32 útvonal; a keresés csak a megadott célhálózatokra irányít.
+* A VPN-motor upstream commitja és kriptográfiai/protokollkódja változatlan.
+  Ez nem igazolt javítás a Giganet IKE-időtúllépésére.
+
 # 0.2.0 – 2026-09-11 – KÍSÉRLETI
 
 - strongSwan/xl2tpd/pppd helyett veepin L2TP/IPsec könyvtár + kisméretű Go-illesztő.

@@ -1,4 +1,4 @@
-# Biztonsági megjegyzések – 0.2.0
+# Biztonsági megjegyzések – 0.2.1
 
 Kísérleti kód, független biztonsági audit nélkül. Üzemi fűtési környezetbe csak külön teszt és a kockázatok mérlegelése után illeszd. A veepin kriptográfiai megvalósításának helyességét nem auditáltuk; az upstream tesztállítás nem egyenértékű saját igazolással.
 
@@ -33,3 +33,27 @@ Az L2TP/IPsec IKEv1 és MS-CHAPv2 régi protokollok; ez a csomag a meglévő hoz
 ## Ellátási lánc
 
 A veepin forrás rögzített Git-commitból épül, az addon csak a nyilvános L2TP API-t használja. A Go-modulokat az upstream `go.mod`/`go.sum` alapján tölti le. A Go és Alpine alapképek verziócímkések, nem digestre rögzítettek; a teljes build bitazonos reprodukálhatósága nem igazolt. Internetelérés kell a fordításhoz. A GitHub Actions csak olvasási jogosultságot kér, képet nem publikál és VPN-re nem jelentkezik be.
+
+## 0.2.1: keresés és IKE-megfigyelés
+
+A keresés kizárólag tudatosan megadott, engedélyezett távoli CIDR-ekben fut,
+maximum 1024 címen, 8 TCP-porton. Nem küld eBUS-parancsot vagy HTTP-kérést,
+de a connect/close ettől még megfigyelhető aktivitás és kapcsolati helyet
+foglalhat. VPN nélkül nincs keresés és nincs sima LAN-os tartalékút.
+A listázás nem teljes eszközleltár, és a nyitott 9999 nem biztos C6-azonosítás.
+Kereséskor a containerben a megadott hálózati route-ok is megjelennek,
+nem csak az adapter /32. A HA gazdarendszer útválasztása változatlan.
+
+Az IKETrace a meglévő NET_RAW jogosultsággal AF_PACKET socketet nyit az
+addon külső interfészén. Csak a megadott szerver UDP 500/4500 IKE-forgalmának
+metaadatait értelmezi és naplózza, legfeljebb 48 részletes sort a kézfogásig.
+Nincs payload, cookie, HASH, ID, PSK vagy jelszó kiírása, és nincs PCAP-fájl.
+A kernelből a kód memóriájába beérkező csomagok közül a nem relevánsakat
+azonnal figyelmen kívül hagyja; nem gazdarendszer-szintű szimatolást végez.
+A naplók címeket, portokat, időpontokat és protokollállapotot tartalmaznak;
+megosztás előtt ezeket is vizsgáld át.
+
+A passzív observer nem teljes protokollvalidátor: cookie-korrelációja nem
+hitelesíti a szervert, a fragmentumokat nem állítja össze, és a megfigyelés
+hiánya nem bizonyít hálózati csomagvesztést. Jogosultsági hiba esetén az
+IKE_TRACE_UNAVAILABLE jelzés mellett a VPN-próba még lefuthat.

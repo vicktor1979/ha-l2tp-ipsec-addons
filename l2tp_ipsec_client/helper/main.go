@@ -18,7 +18,7 @@ import (
 	"github.com/xen0bit/veepin/l2tp"
 )
 
-const version = "c6-vpn-engine 0.2.0; veepin v0.9.6; commit 6c37e3691c326e54956cea042e2df67d3717e7a4"
+const version = "c6-vpn-engine 0.2.1; veepin v0.9.6; commit 6c37e3691c326e54956cea042e2df67d3717e7a4"
 const tunName = "c6vpn0"
 
 type event struct {

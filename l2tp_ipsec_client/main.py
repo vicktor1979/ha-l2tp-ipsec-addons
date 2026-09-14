@@ -26,7 +26,10 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
-VERSION = "0.2.0"
+from vpn_tools import IKETrace, discovery_networks, discovery_ports, scan_networks
+
+VERSION = "0.2.1"
+ENGINE_VERSION = "0.2.1"
 ENGINE = "/usr/local/bin/c6-vpn-engine"
 TUN_INTERFACE = "c6vpn0"
 LISTEN_PORT = 9999
@@ -87,15 +90,39 @@ class Config:
     retry_delay: int
     max_retries: int
     allowed: tuple[ipaddress.IPv4Network, ...]
+    mode: str = "proxy"
+    networks: tuple[ipaddress.IPv4Network, ...] = ()
+    scan_ports: tuple[int, ...] = (9999, 80, 443)
+    ike_trace: bool = False
+
+    def target_networks(self) -> tuple[ipaddress.IPv4Network, ...]:
+        if self.mode == "discover":
+            return self.networks
+        if self.mode == "proxy":
+            return (ipaddress.IPv4Network(self.adapter + "/32"),)
+        return ()
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "Config":
         server = unicast_ipv4(data.get("vpn_server"), "vpn_server")
-        adapter = unicast_ipv4(data.get("adapter_ip"), "adapter_ip")
+        mode = data.get("connection_mode", "proxy")
+        if mode not in ("proxy", "vpn_test", "discover"):
+            raise ConfigError("A connection_mode proxy, vpn_test vagy discover legyen.")
+        # In test/discovery mode the previous adapter value is deliberately ignored.
+        adapter = unicast_ipv4(data.get("adapter_ip"), "adapter_ip") if mode == "proxy" else ""
+        networks, ports = (), (9999, 80, 443)
+        if mode == "discover":
+            try:
+                networks = discovery_networks(data.get("discovery_networks", []))
+                ports = discovery_ports(data.get("discovery_ports", [9999, 80, 443]))
+            except ValueError as err:
+                raise ConfigError(str(err)) from None
+            if any(ipaddress.IPv4Address(server) in n for n in networks):
+                raise ConfigError("A VPN-szerver címe nem lehet a keresési tartományban.")
         if server == adapter:
             raise ConfigError("A VPN-szerver és az adapter címe nem lehet azonos.")
         if data.get("ppp_auth", "mschapv2") != "mschapv2":
-            raise ConfigError("A 0.2.0 csak ppp_auth: mschapv2 beállítást támogat. PAP/CHAP/auto nincs megvalósítva.")
+            raise ConfigError("A 0.2.x csak ppp_auth: mschapv2 beállítást támogat. PAP/CHAP/auto nincs megvalósítva.")
         if boolean(data, "legacy_compatibility", False):
             raise ConfigError("A legacy_compatibility kapcsoló az új motorban nem támogatott; állítsd false-ra.")
         nets = data.get("allowed_clients", ["172.30.32.0/23", "127.0.0.1/32"])
@@ -118,6 +145,7 @@ class Config:
             number(data, "mtu", 1400, 1280, 1460),
             number(data, "retry_delay", 60, 30, 600),
             number(data, "max_retries", 3, 1, 10), tuple(allowed),
+            mode, networks, ports, boolean(data, "ike_trace", False),
         )
 
     def credentials(self) -> dict[str, str]:
@@ -185,7 +213,7 @@ def tun_preflight(runner: Runner) -> None:
             test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface + b"\0")
     except OSError as err:
         if err.errno == errno.ENOENT:
-            detail = "A /dev/net/tun nincs átadva az addonnak. Ellenőrizd, hogy valóban 0.2.0-ra frissült-e."
+            detail = "A /dev/net/tun nincs átadva az addonnak. Ellenőrizd, hogy valóban 0.2.x-re frissült-e."
         elif err.errno in (errno.EPERM, errno.EACCES):
             detail = "A TUN-próbát jogosultság/AppArmor/eszközengedély akadályozza. NET_ADMIN és TUN-hozzáférés szükséges."
         else:
@@ -196,8 +224,8 @@ def tun_preflight(runner: Runner) -> None:
             os.close(fd)  # No persist flag: destroys the temporary TUN.
     log("TUN_OK – az ideiglenes TUN létrehozása és a socket interfészhez kötése sikeres.")
     out = runner.command([ENGINE, "--version"])
-    if "c6-vpn-engine 0.2.0;" not in out.stdout:
-        raise RuntimeError("Nem a 0.2.0 VPN-motor található a konténerben.")
+    if f"c6-vpn-engine {ENGINE_VERSION};" not in out.stdout:
+        raise RuntimeError(f"Nem a {ENGINE_VERSION} VPN-motor található a konténerben.")
     log(out.stdout.strip())
     log("ENGINE_OK – a kliensprogram elindítható; VPN-bejelentkezés nem történt.")
 
@@ -209,8 +237,8 @@ def check_subnet_conflict(cfg: Config, interfaces: list[dict[str, Any]]) -> None
         for item in iface.get("addr_info", []):
             if item.get("family") == "inet":
                 net = ipaddress.IPv4Network(f"{item['local']}/{item['prefixlen']}", strict=False)
-                if ipaddress.IPv4Address(cfg.adapter) in net:
-                    raise ConfigError("Az adapter címe ütközik az addon belső konténerhálózatával.")
+                if any(target.overlaps(net) for target in cfg.target_networks()):
+                    raise ConfigError("A célhálózat ütközik az addon belső konténerhálózatával.")
 
 
 def blackhole_command(cfg: Config) -> list[str]:
@@ -223,12 +251,32 @@ def route_commands(cfg: Config, address: str, engine_mtu: int) -> list[list[str]
     if address in {cfg.server, cfg.adapter}:
         raise RuntimeError("A kiosztott VPN-cím ütközik a VPN-szerver vagy a C6 címével.")
     mtu = min(cfg.mtu, engine_mtu if 576 <= engine_mtu <= 9000 else cfg.mtu)
-    return [
+    commands = [
         ["ip", "-4", "address", "add", address + "/32", "dev", TUN_INTERFACE],
         ["ip", "link", "set", "dev", TUN_INTERFACE, "mtu", str(mtu), "up"],
-        ["ip", "-4", "route", "replace", cfg.adapter + "/32", "dev", TUN_INTERFACE,
-         "src", address, "metric", "5"],
     ]
+    for target in cfg.target_networks():
+        commands.append(["ip", "-4", "route", "replace", str(target), "dev", TUN_INTERFACE,
+                         "src", address, "metric", "5"])
+    return commands
+
+
+def start_ike_trace(cfg: Config, runner: Runner) -> IKETrace | None:
+    if not cfg.ike_trace:
+        return None
+    try:
+        out = runner.command(["ip", "-j", "-4", "route", "get", cfg.server])
+        route = json.loads(out.stdout)[0]
+        interface = route["dev"]
+        if interface == TUN_INTERFACE:
+            raise RuntimeError("A VPN-szerver útvonala tévesen a VPN-re mutat.")
+        runner.logger.log(f"VPN_OUTER_ROUTE dev={interface} src={route.get('prefsrc', '?')} via={route.get('gateway', '-')}")
+        return IKETrace(cfg.server, interface, runner.logger.log)
+    except (RuntimeError, OSError, ValueError, KeyError, IndexError) as err:
+        runner.logger.log("IKE_TRACE_UNAVAILABLE – a metaadat-naplózás nem indult: " + str(err) +
+                          ". A VPN-próba ettől még folytatódik.", "WARN")
+        return None
+
 
 
 class VPNProcess:
@@ -276,7 +324,6 @@ class VPNProcess:
             elif name == "error":
                 self.error = str(value.get("message", "VPN-motor hiba"))
                 self.auth = value.get("auth") is True
-                self.logger.log(self.error, "ERROR")
                 self.ready.set()
             elif name == "warning":
                 self.logger.log(str(value.get("message", "VPN-motor figyelmeztetés")), "WARN")
@@ -463,7 +510,9 @@ class Proxy:
 def vpn_cycle(cfg: Config, runner: Runner) -> None:
     engine: VPNProcess | None = None
     proxy: Proxy | None = None
+    trace: IKETrace | None = None
     try:
+        trace = start_ike_trace(cfg, runner)
         engine = VPNProcess(cfg, runner.logger)
         deadline = time.monotonic() + 50
         while not STOP.is_set():
@@ -476,12 +525,25 @@ def vpn_cycle(cfg: Config, runner: Runner) -> None:
         if STOP.is_set():
             return
         assert engine.up is not None
+        if trace:
+            trace.close()
+            trace = None
         address = engine.up["address"]
         for command in route_commands(cfg, address, engine.up["mtu"]):
             runner.command(command)
         engine.check()
         runner.logger.log(f"VPN_UP – {TUN_INTERFACE}, kiosztott VPN-cím: {address}.")
-        runner.logger.log("ROUTE_OK – csak az adapter /32 útvonala került a VPN-re; DNS/default route változatlan.")
+        targets = ", ".join(map(str, cfg.target_networks())) or "nincs célútvonal (VPN-próba)"
+        runner.logger.log("ROUTE_OK – " + targets + "; DNS/default route változatlan.")
+        if cfg.mode == "discover":
+            scan_networks(cfg.networks, cfg.scan_ports, address, TUN_INTERFACE,
+                          STOP, runner.logger.log, engine.check)
+            runner.logger.log("DISCOVERY_FINISHED – egyszeri keresés kész; proxy nem indult. "
+                              "A VPN lezárul; a találat kézzel adható meg adapter_ip-ként.")
+            return
+        if cfg.mode == "vpn_test":
+            runner.logger.log("VPN_TEST_OK – a VPN felépült; adapterkapcsolat/keresés nem történt. A próba lezárul.")
+            return
         proxy = Proxy(cfg, address, runner.logger)
         runner.logger.log(f"PROXY_READY – TCP {LISTEN_PORT}; ez még nem bizonyítja a C6 elérhetőségét.")
         hostname = socket.gethostname().replace("_", "-")
@@ -496,10 +558,13 @@ def vpn_cycle(cfg: Config, runner: Runner) -> None:
             proxy.close()
         if engine:
             engine.close()
+        if trace:
+            trace.close(failed=True)
         # Cleanup must not hide a prior authentication failure and trigger retries.
         try:
-            runner.command(["ip", "-4", "route", "del", cfg.adapter + "/32", "dev", TUN_INTERFACE,
-                            "metric", "5"], required=False)
+            for target in cfg.target_networks():
+                runner.command(["ip", "-4", "route", "del", str(target), "dev", TUN_INTERFACE,
+                                "metric", "5"], required=False)
         except RuntimeError:
             runner.logger.log("Az ideiglenes útvonal törlése nem ellenőrizhető; a TUN lezárása eltávolítja azt.", "WARN")
         # The TUN is destroyed when the helper closes its descriptor.
@@ -530,7 +595,8 @@ def main(options_path: Path = Path("/data/options.json"), *, check_only: bool = 
         assert cfg is not None
         out = runner.command(["ip", "-j", "-4", "address", "show"])
         check_subnet_conflict(cfg, json.loads(out.stdout))
-        runner.command(blackhole_command(cfg))
+        for target in cfg.target_networks():
+            runner.command(["ip", "-4", "route", "replace", "blackhole", str(target), "metric", "42760"])
         for attempt in range(1, cfg.max_retries + 1):
             if STOP.is_set():
                 return 0
@@ -545,6 +611,9 @@ def main(options_path: Path = Path("/data/options.json"), *, check_only: bool = 
                 if STOP.is_set():
                     return 0
                 logger.log(str(err), "ERROR")
+                if "IKE" in str(err) and "timed out" in str(err):
+                    logger.log("IKE_TIMEOUT – IPsec-egyeztetési időtúllépés, még nem az adapter elérése. "
+                               "Ebből önmagában nem dönthető el a hálózati, PSK- vagy kompatibilitási ok.", "WARN")
                 if attempt < cfg.max_retries:
                     logger.log(f"Következő próbálkozás {cfg.retry_delay} másodperc múlva.")
                     STOP.wait(cfg.retry_delay)

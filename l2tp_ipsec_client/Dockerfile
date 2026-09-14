@@ -18,14 +18,14 @@ RUN go mod download \
     && /out/c6-vpn-engine --version
 
 FROM alpine:3.23
-ARG BUILD_VERSION=0.2.0
+ARG BUILD_VERSION=0.2.1
 ARG BUILD_ARCH=amd64
 RUN apk add --no-cache python3 iproute2 tini tzdata \
     && mkdir -p /app /usr/share/licenses/veepin
 COPY --from=engine-build /out/c6-vpn-engine /usr/local/bin/c6-vpn-engine
 COPY --from=engine-build /src/LICENSE /usr/share/licenses/veepin/LICENSE
-COPY main.py /app/main.py
-RUN python3 -m py_compile /app/main.py \
+COPY main.py vpn_tools.py /app/
+RUN python3 -m py_compile /app/main.py /app/vpn_tools.py \
     && /usr/local/bin/c6-vpn-engine --version \
     && command -v ip
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1

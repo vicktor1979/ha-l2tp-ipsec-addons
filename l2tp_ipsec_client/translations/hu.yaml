@@ -17,7 +17,7 @@ configuration:
     description: A Windowsban külön megadott L2TP/IPsec közös kulcs.
   adapter_ip:
     name: C6 adapter távoli IPv4-címe
-    description: A VPN-en elérhető adapter belső címe. Csak erre készül /32 útvonal.
+    description: Csak proxy módban szükséges. VPN-próbánál és keresésnél üresen hagyható.
   adapter_port:
     name: Adapter TCP-portja
     description: Alapértelmezés 9999. Az addon helyi proxyportja ettől függetlenül
@@ -43,5 +43,21 @@ configuration:
     name: Engedélyezett TCP-kliensek
     description: IPv4/CIDR lista. Másik HA-géphez annak helyi IP-címét /32 végződéssel
       add hozzá.
+  connection_mode:
+    name: Működési mód
+    description: 'proxy: ismert adapter; vpn_test: csak VPN-próba; discover: egyszeri
+      keresés. A teszt és keresés után leáll.'
+  discovery_networks:
+    name: Keresendő távoli hálózatok
+    description: Csak discover módban. Saját/engedélyezett távoli CIDR, például 192.168.50.0/24.
+      Legfeljebb 1024 cím; nincs automatikus találgatás.
+  discovery_ports:
+    name: Keresendő TCP-portok
+    description: Alapérték 9999, 80, 443. Csak connect/close, parancs vagy webkérés
+      küldése nélkül.
+  ike_trace:
+    name: IKE fejléc-diagnosztika
+    description: IPsec kézfogás küldési/fogadási metaadatai. Nincs nyers csomag, jelszó,
+      PSK, azonosító vagy hash naplózása.
 network:
   9999/tcp: C6 TCP-átjáró. Csak másik HA-géphez tedd közzé, internetre ne.

@@ -1,41 +1,42 @@
-# Ellenőrzési jelentés – 0.2.0
+# 0.2.1 helyi ellenőrzési jelentés – 2026-09-14
 
-Dátum: 2026-09-11. A jelentés a csomag létrehozásakor ténylegesen végzett ellenőrzéseket különíti el a tervezett ellenőrzésektől.
+## Ténylegesen elvégzett vizsgálatok
 
-## Lefutott és sikeres
+* `python -m unittest discover -s tests -v`: **76 sikeres teszt**.
+  Ebből 42 a korábbi beállítás-, jogosultság-, route-, napló- és helyi
+  TCP-relay regressziós teszt; 34 új teszt a módokról, CIDR/port-határokról,
+  VPN előtti kereséstilalomról, TUN-kötésről és IKE-fejlécfeldolgozásról.
+* `go test -v config.go config_test.go`: **2 sikeres standard-library teszt**.
+  Ez nem a teljes veepin motor fordítása vagy protokolltesztje.
+* Külön valódi, loopback TCP-próba a kereső `probe_tcp` függvényével:
+  a socket `lo` interfészhez és 127.0.0.1 forráscímhez kötve elérte a helyi
+  teszt-listenert (`REAL_LOOPBACK_BOUND_PROBE_OK`). Nem külső célpont.
+* Python szintaxisellenőrzés, YAML-fájlok beolvasása, manifest/fordítási fájlok
+  és fordítási workflow ellenőrzése. A végeredmény a kiadási csomagban van.
 
-| Ellenőrzés | Eredmény | Mit fed le? |
-|---|---|---|
-| `python3 -m unittest discover -s tests -v` | **42 teszt sikeres** | Konfiguráció, titokmaszkolás, útvonalparancsok, TUN-hibaszövegek szimulált rendszerhívásokkal, motoresemények, VPN-interfészhez kötés sorrendje és tiltott fallback, TCP-relé, manifest. |
-| `go test -v config.go config_test.go` a helper mappában | **2 tesztfüggvény sikeres**, az egyik 6 hibás bemenetet vizsgál | Csak a Go standard library alapú JSON-/belépésiadat-feldolgozó. Nem importálja és nem fordítja a veepin motort. |
-| `python3 -m py_compile` | Sikeres | Python-szintaxis. |
-| `gofmt` | Sikeres | A Go-források formázása/szintaktikai feldolgozása; nem típusellenőrzött teljes motor-build. |
-| YAML beolvasás és opció-/fordításikulcs-egyezés | Sikeres | Manifest, repository, magyar/angol fordítások, workflow szerkezeti vizsgálata. Nem teljes Supervisor-validáció. |
-| Csomagstruktúra | Sikeres | Gyökérszintű repository.yaml, változatlan slug, 0.2.0 verzió, új helper mappa, tesztek, workflow; nincs külső mappaszint. |
+## Korlátok és el nem végzett vizsgálatok
 
-A tesztkörnyezet: Python 3.13.5, Go 1.23.2, Linux amd64. A Go 1.23.2 csak az önálló, standard library alapú bemenetellenőrzési tesztet futtatta. A teljes motor a Dockerfile-ban Go 1.27.0 fordítót használ.
+* Valódi AF_PACKET IKE-megfigyelés: a helyi környezet jogosultsági korlátja
+  miatt nem futott (`Operation not permitted`). A parser és a korreláció
+  szintetikus csomagokkal tesztelt. A HA-n NET_RAW és AppArmor mellett
+  külön ellenőrizni kell, hogy az observer elindul-e.
+* Nincs teljes Docker-build: itt nincs működő Docker-környezet és az
+  upstream függőségek konténeres letöltése sem állt rendelkezésre.
+* Nincs valódi 0.2.1 HA-installáció, TUN-routolás vagy IPsec-tunnel teszt.
+* Nincs Giganet VPN-bejelentkezés, távoli hálózatpásztázás vagy C6-teszt.
+* Az aarch64 támogatás deklarált, de build/runtime ebben a körben nem tesztelt.
+* Nincs független kriptográfiai vagy biztonsági audit.
 
-**A négy Python RelayIntegrationTests-teszt valódi helyi TCP/socketpair kapcsolatot használ. Nem egy valódi C6-ot, nem VPN-szervert és nem TUN-t tesztel.** A tesztfuttatás naplójában megjelenő `C6_TCP_CONNECTED` és más státuszok tesztkörnyezetből származnak, nem tényleges VPN/adapterelérés bizonyítékai.
+A 0.2.0-ról a felhasználó által bemásolt napló igazolja a saját rendszerén
+az akkori TUN- és motorindítást, de ez nem tekinthető a 0.2.1 új funkcióinak
+helyi igazolásának. A tényleges VPN ott IKE-időtúllépéssel állt meg.
 
-## Nem futott le / nem igazolt
+## Következő helyszíni ellenőrzés
 
-- A teljes Go-illesztő összefordítása a rögzített veepin-függőséggel.
-- A Docker-image felépítése és a csomagletöltések sikeressége.
-- GitHub Actions futás a felhasználó repositoryjában.
-- Valódi `/dev/net/tun`, capability- és AppArmor-ellenőrzés a felhasználó HA OS-én.
-- A Home Assistant 0.1.0 → 0.2.0 frissítési/migrációs folyamata.
-- amd64 vagy aarch64 Home Assistant runtime; ARM-build.
-- Giganet IKEv1/ESP ajánlategyezés, NAT-T, L2TP/MS-CHAPv2 hitelesítés.
-- Valódi C6 TCP-port, ebusd enhanced adatfolyam, hosszú távú szakadás/újracsatlakozás.
-- Biztonsági audit vagy az upstream kriptográfiai megvalósításának független ellenőrzése.
+1. GitHub Actions: teljes Docker-build és helyi TUN-előellenőrzés, titkok nélkül.
+2. HA-n 0.2.1, `diagnostics_only: false`, `connection_mode: vpn_test`,
+   `ike_trace: true`, `max_retries: 1`; Watchdog és automatikus indítás kikapcsolva.
+3. A kapcsolat és a pontos távoli CIDR igazolása után egyszeri `discover` mód.
 
-Ebben a munkakörnyezetben nincs Docker futtató; az upstream teljes letöltése és a Go-függőségek fordítása nem volt elvégezhető. A nyilvános upstream API-t forrásszinten átnéztük, de ez nem helyettesíti a rögzített kiadással történő teljes buildet.
-
-## Következő, tényleges ellenőrzési sorrend
-
-1. Feltöltés után GitHub Actions: teljes amd64 Docker-build és jelszó nélküli TUN-próba a CI-gépen. Az itt sikeres TUN-próba nem igazolja a HA AppArmor-profilját.
-2. A felhasználó HA-ján 0.2.0, `diagnostics_only: true`, VPN-adatok nélkül.
-3. Sikeres helyi diagnosztika után külön Giganet VPN-bejelentkezés, helyben megadott titkokkal.
-4. `VPN_UP`/`PROXY_READY` után az ebusd egyetlen C6-kapcsolatának ellenőrzése.
-
-A sikeres offline tesztek alapján **nem állítjuk**, hogy a csomag már működőképes a felhasználó hálózatában. Ez a kipróbálásra előkészített kísérleti megvalósítás.
+A kiadás diagnosztikai és keresési bővítés; az upstream VPN-protokollmotor
+változatlan. A jelenlegi IKE-hiba javítását nem állítjuk.

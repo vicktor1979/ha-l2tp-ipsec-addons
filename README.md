@@ -1,47 +1,52 @@
-# L2TP/IPsec C6 átjáró Home Assistanthoz – 0.2.0
+# Kísérleti Home Assistant L2TP/IPsec C6 átjáró – 0.2.1
 
-**Kísérleti forráscsomag. Nem igazolt még valódi HA OS-en vagy Giganet VPN-szerverrel.**
+Ez a repository a meglévő, PSK + felhasználónév/jelszó alapú L2TP/IPsec
+VPN-hez készülő, kísérleti Home Assistant app/addon forrása.
+A PPP-t a veepin kezeli felhasználói térben; kernel-PPP nem szükséges.
 
-Ez a változat a `CONFIG_PPP=n` korlát megkerülésére készült: a veepin L2TP/IPsec-könyvtárával a PPP-t a felhasználói program kezeli, nem a Linux kernel. TUN-hozzáférés továbbra is szükséges.
+## A 0.2.1 célja
 
-```text
-ebusd addon → C6 átjáró addon TCP 9999 → L2TP/IPsec VPN → távoli C6 TCP-port
-```
+* `vpn_test`: adaptercím nélkül csak a VPN-kapcsolatot próbálja ki, majd leáll.
+* `discover`: sikeres VPN után egyszer átvizsgálja a kifejezetten megadott
+  távoli CIDR-eket néhány TCP-porton, és naplózza a válaszokat, majd leáll.
+* `proxy`: az eredeti, ismert C6-címhez kötött egyklienses TCP-átjáró.
+* `ike_trace`: az addon konténerének külső interfészén az adott VPN-szerverrel
+  folytatott IKE-kézfogás fejléc-metaadatait naplózza. Nincs nyers csomagkiírás.
 
-Nem általános VPN az összes HA-komponens számára. Csak a beállított adapter egy TCP-portjához közvetít kapcsolatot. A VPN és az útvonalak a saját konténer hálózati névterében maradnak; a HA gazdarendszerének default route-ját vagy DNS-ét nem módosítja.
+**Az IKE időtúllépésének okát a korábbi napló nem azonosítja. Ez a verzió
+nem igazolt kompatibilitási javítás: diagnosztikai és keresési bővítés.
+A veepin protokoll- és kriptográfiai megvalósítása változatlan, ugyanabból
+az upstream commitból fordul.**
 
-## Már telepítetted a 0.1.0-t?
+A helyi ellenőrzések a `TEST_REPORT.md` fájlban találhatók. A teljes
+Docker-buildet, HA-telepítést és a szolgáltatói VPN-t ehhez a kiadáshoz
+nem tudtuk itt kipróbálni. Üzemi rendszer előtt külön teszt szükséges.
 
-A teljes frissítési leírás: **[UPGRADE.md](UPGRADE.md)**. Ugyanazt a GitHub-tárolót és `l2tp_ipsec_client` azonosítót használd. Ne csak a verziószámot írd át: az egész csomagot cseréld.
+## Telepítés és frissítés
 
-## Első telepítés
+A repository teljes tartalmát töltsd fel a saját GitHub-tárolód gyökerébe.
+A `repository.yaml` maradjon a gyökérben; a rejtett `.github` mappát is töltsd fel.
+Az addon slugja változatlan: `l2tp_ipsec_client`. A saját GitHub-tároló címét
+add a Home Assistant alkalmazás-/bővítményáruház tárolóihoz (nem HACS).
+Meglévő telepítésnél frissítés után a 0.2.1 verziót ellenőrizd.
 
-A tároló teljes tartalma kerüljön a saját nyilvános GitHub-repositoryd gyökerébe. A `repository.yaml` maradjon gyökérszinten, mellette a `l2tp_ipsec_client/` mappa. A repository címét a Home Assistant alkalmazás-/bővítményáruházában a Tárolók menüben add hozzá; nem HACS-integráció.
+Részletek: `UPGRADE.md`, `l2tp_ipsec_client/DOCS.md`, `SECURITY.md`.
+Valódi VPN-jelszót, felhasználónevet vagy PSK-t ne tölts fel a GitHubra.
 
-A telepítési és beállítási útmutató az addonban is megjelenő **[DOCS.md](l2tp_ipsec_client/DOCS.md)**.
+## Rendszer és jogosultságok
 
-## Követelmények és korlátok
+A manifest amd64 és aarch64 architektúrát jelöl. Az aarch64 build ebben
+az ellenőrzésben nem futott le. TUN, NET_ADMIN és NET_RAW szükséges;
+a HA host hálózata, teljes hardverhozzáférés és kernelmodul-betöltés nem.
+A gazdarendszer DNS-ét és alapértelmezett útvonalát nem változtatja meg.
 
-- HA Supervisor addonrendszer; a manifest `amd64` és `aarch64` architektúrát engedélyez. Ezek nem tesztelt kompatibilitási tanúsítások; 32 bites ARM nincs engedélyezve.
-- `/dev/net/tun`, `NET_ADMIN`, `NET_RAW`. Nincs `full_access`, kernelmodul-betöltés vagy host hálózat. Az AppArmor engedélyezett.
-- IPv4 VPN-szervercím és IPv4 adaptercím. Ebben a verzióban szervernév nem adható meg.
-- IKEv1 + PSK, NAT-T, L2TP és MS-CHAPv2. A szerver pontos titkosítási/hitelesítési kompatibilitását tesztelni kell. PAP/CHAP és a régi `legacy_compatibility` kapcsoló nincs implementálva.
-- Egyszerre egy C6-kliens; nincs önálló eBUS-lekérdezés vagy automatikus adapterpoll.
+## Hivatkozások
 
-A felhasználónév, jelszó és PSK csak a Home Assistant addonbeállításaiba kerüljön. **Nyilvános GitHub-fájlba, Actions-titokba vagy hibajegybe nem kell és nem szabad beírni.**
+* https://developers.home-assistant.io/docs/apps/configuration/
+* https://developers.home-assistant.io/docs/apps/repository/
+* https://github.com/xen0bit/veepin/blob/main/doc/usage/l2tp.md
+* https://www.rfc-editor.org/rfc/rfc3947
+* https://adapter.ebusd.eu/v5-c6/steps.en.html
 
-## Ellenőrzések
-
-A csomag készítésekor 42 Python-teszt és 2, csak szabványos könyvtárat használó Go-bemenetellenőrzési teszt sikeres volt. A Python-csomagban valódi helyi TCP-relétesztek is szerepelnek, de a TUN/VPN-események szimuláltak. **A teljes veepin-motor lefordítása, Docker-build, HA-telepítés és Giganet-kapcsolat nem történt meg.** Részletek: [TEST_REPORT.md](TEST_REPORT.md).
-
-A `.github/workflows/build.yml` feltöltés után elvégezheti a teljes amd64 Docker-buildet és a jelszó nélküli TUN-diagnosztikát GitHub Actions alatt. A sikeres CI sem jelenti a Giganet-kapcsolat igazolását.
-
-## Források
-
-- Home Assistant konfiguráció: https://developers.home-assistant.io/docs/apps/configuration/
-- Home Assistant belső kommunikáció: https://developers.home-assistant.io/docs/apps/communication/
-- veepin L2TP-motor: https://github.com/xen0bit/veepin
-- veepin L2TP-dokumentáció: https://github.com/xen0bit/veepin/blob/main/doc/usage/l2tp.md
-- Rögzített upstream commit: `6c37e3691c326e54956cea042e2df67d3717e7a4` (`v0.9.6`).
-
-A biztonsági tudnivalókat a [SECURITY.md](SECURITY.md), a licenceket a [NOTICE.md](NOTICE.md) foglalja össze.
+A nyilvános dokumentáció nem garantálja a konkrét VPN-szerverrel való
+kompatibilitást. Ez a kliens nem függetlenül auditált megoldás.

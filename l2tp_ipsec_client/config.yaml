@@ -1,10 +1,10 @@
-name: "L2TP/IPsec Client – C6 átjáró"
-version: "0.2.0"
+name: L2TP/IPsec Client – C6 átjáró
+version: 0.2.1
 slug: l2tp_ipsec_client
-description: "Kísérleti, kernel-PPP nélküli L2TP/IPsec kliens és C6 TCP-átjáró."
+description: Kísérleti L2TP/IPsec kliens, C6 átjáró, célzott eszközkeresés és IKE-diagnosztika.
 arch:
-  - amd64
-  - aarch64
+- amd64
+- aarch64
 startup: services
 boot: manual
 init: false
@@ -14,23 +14,23 @@ full_access: false
 kernel_modules: false
 apparmor: true
 privileged:
-  - NET_ADMIN
-  - NET_RAW
+- NET_ADMIN
+- NET_RAW
 devices:
-  - /dev/net/tun
+- /dev/net/tun
 tmpfs: true
 timeout: 30
 ports:
   9999/tcp: null
 ports_description:
-  9999/tcp: "C6 TCP-átjáró. Másik HA-géphez opcionálisan közzétehető; internetre TILOS."
+  9999/tcp: C6 TCP-átjáró. Másik HA-géphez opcionálisan közzétehető; internetre TILOS.
 options:
   diagnostics_only: true
-  vpn_server: ""
-  vpn_username: ""
-  vpn_password: ""
-  vpn_psk: ""
-  adapter_ip: ""
+  vpn_server: ''
+  vpn_username: ''
+  vpn_password: ''
+  vpn_psk: ''
+  adapter_ip: ''
   adapter_port: 9999
   ppp_auth: mschapv2
   legacy_compatibility: false
@@ -38,8 +38,15 @@ options:
   retry_delay: 60
   max_retries: 3
   allowed_clients:
-    - "172.30.32.0/23"
-    - "127.0.0.1/32"
+  - 172.30.32.0/23
+  - 127.0.0.1/32
+  connection_mode: proxy
+  discovery_networks: []
+  discovery_ports:
+  - 9999
+  - 80
+  - 443
+  ike_trace: false
 schema:
   diagnostics_only: bool
   vpn_server: str
@@ -48,11 +55,16 @@ schema:
   vpn_psk: password
   adapter_ip: str
   adapter_port: port
-  # Retained for upgrade compatibility. Only mschapv2/false are implemented.
-  ppp_auth: "list(mschapv2|chap|pap|auto)"
+  ppp_auth: list(mschapv2|chap|pap|auto)
   legacy_compatibility: bool
-  mtu: "int(1280,1460)"
-  retry_delay: "int(30,600)"
-  max_retries: "int(1,10)"
+  mtu: int(1280,1460)
+  retry_delay: int(30,600)
+  max_retries: int(1,10)
   allowed_clients:
-    - str
+  - str
+  connection_mode: list(proxy|vpn_test|discover)
+  discovery_networks:
+  - str
+  discovery_ports:
+  - port
+  ike_trace: bool

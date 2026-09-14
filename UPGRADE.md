@@ -1,69 +1,70 @@
-# Frissítés 0.1.0-ról 0.2.0-ra
+# Frissítés 0.2.0 → 0.2.1
 
-## 1. Mentés és leállítás
+Készíts mentést. Állítsd le az addont, és tesztelés alatt tartsd kikapcsolva
+az automatikus indítást és a Watchdogot. A Védett mód maradhat a 0.2.0
+sikeres TUN-próbájánál használt állapotban; a 0.2.1 nem kér új jogosultságot.
 
-Készíts HA-mentést. Állítsd le a régi addont. Az automatikus indítás, az automatikus frissítés és a Watchdog maradjon kikapcsolva a tesztelés idejére. A régi verzióba most ne adj meg új VPN-titkokat.
+A teljes csomagot töltsd fel ugyanabba a GitHub-repositoryba, majd az
+áruház újraellenőrzése után frissíts 0.2.1-re. Ne csak a verziószámot írd át.
+Új fájl: `l2tp_ipsec_client/vpn_tools.py`; a Dockerfile is módosult.
+A `.github/workflows/build.yml` fájlt is frissítsd.
 
-## 2. A saját GitHub-tároló frissítése
+A hálózati protokollmotor megvalósítása változatlan. A helper verziójelzése
+0.2.1, hogy az addon az összekeveredett buildfájlokat észlelhesse.
 
-Csomagold ki a ZIP-et. **A teljes kicsomagolt tartalommal írd felül a korábban létrehozott repository fájljait**, az eredeti könyvtárszerkezetben. A ZIP-et ne töltsd fel egyetlen fájlként, és ne legyen körülötte egy további mappaszint.
+## Első próba a jelenlegi IKE időtúllépéshez
 
-Kiemelten szükséges fájlok:
-
-```text
-repository.yaml
-l2tp_ipsec_client/
-    config.yaml             # version: 0.2.0
-    Dockerfile              # teljesen új fordítási folyamat
-    main.py                 # teljesen új vezérlő és proxy
-    helper/
-        main.go
-        config.go
-        config_test.go
-    translations/
-        hu.yaml
-        en.yaml
-.github/workflows/build.yml
-```
-
-A `helper/` mappa új; nélküle a Docker-build nem sikerül. A `.github/` rejtett mappát is töltsd fel, ha az Actions-ellenőrzést használod. A `tests/test_main.py` régi példánya helyett az új kerüljön fel. Nem kell a saját GitHub-felhasználónevedet a forrásba írni.
-
-Az addon `slug` értéke változatlan (`l2tp_ipsec_client`), ezért ugyanabban a repositoryban frissítésként kezelhető. Másik repository hozzáadása külön addonazonosítót hozhat létre.
-
-## 3. Buildellenőrzés és Home Assistant-frissítés
-
-A GitHub **Actions** lapján keresd a `Validate and build experimental C6 gateway` folyamatot. Nem igényel VPN-adatokat. Ha nem indul, ellenőrizd, hogy a `.github/workflows/build.yml` valóban feltöltődött-e és az Actions engedélyezett-e. Ha piros, először a hibás lépés naplóját vizsgáld meg; ne értelmezd VPN-hitelesítési hibának.
-
-A HA bővítmény-/alkalmazásáruházában válaszd a frissítések keresését, majd az addon adatlapján a **Frissítés** lehetőséget. A pontos magyar menünév a HA verziójától függhet. **A telepített verzió a végén 0.2.0 legyen.** Ha csak 0.1.0 látszik, ellenőrizd a GitHubon a `l2tp_ipsec_client/config.yaml` tartalmát és a megfelelő alapértelmezett ágat.
-
-A saját HA-n történő build külső GitHub-, Go-modul- és konténer-/Alpine-források elérését igényli. Egy letöltési/fordítási hiba még nem VPN-probléma.
-
-## 4. Első indítás – csak diagnosztika
-
-A korábbi jogosultságok megváltoztak: nincs teljes hardverhozzáférés, nincs kernelmodul-hozzáférés, az AppArmor vissza van kapcsolva. **Frissítés után kapcsold vissza a Védett módot, és így kezdd a tesztet.** A tényleges HA-változat engedélyezését a naplóval ellenőrizzük; hiba esetén ne adj találomra teljes jogosultságot.
-
-Az addon beállításaiban:
+A meglévő VPN-hitelesítési adatok maradjanak meg. A következő **részletet**
+állítsd be a konfigurációban, ne töröld a többi szükséges mezőt:
 
 ```yaml
-diagnostics_only: true
+diagnostics_only: false
+connection_mode: vpn_test
+adapter_ip: ""
+ike_trace: true
+max_retries: 1
 ```
 
-Ez konfigurációrészlet, nem a teljes beállításlista. Jelszó nem szükséges. Indítsd az addont, majd a naplóban az alábbi jelzéseket keressük:
+Ekkor nincs célhálózat-keresés és nincs proxy. A VPN-felépülés után
+`VPN_TEST_OK` jelenik meg, és a program szándékosan befejeződik.
+Ha az IKE elakad, `IKE_TX`, `IKE_RX`, `IKE_TRACE_SUMMARY` segít különválasztani
+az észlelt válasz nélküli próbát az egyeztetés későbbi elakadásától.
+A megfigyelt válasz önmagában még nem hitelesített válasz.
 
-```text
-L2TP/IPsec C6 átjáró 0.2.0
-PPP_KERNEL_NOT_REQUIRED
-TUN_OK
-ENGINE_OK
-DIAGNOSTICS_OK
+## Keresés sikeres VPN után
+
+A távoli helyi hálózat valódi CIDR-je szükséges. A VPN-kliens kiosztott címe
+nem feltétlenül ennek a hálózatnak a címtartományából származik.
+**A 192.168.50.0/24 alább csak példa, nem a te hálózatod azonosítása.**
+
+```yaml
+diagnostics_only: false
+connection_mode: discover
+adapter_ip: ""
+discovery_networks:
+  - "192.168.50.0/24"
+discovery_ports:
+  - 9999
+  - 80
+  - 443
+ike_trace: false
+max_retries: 1
 ```
 
-A diagnosztika a saját konténerben rövid életű TUN-t nyit/zár, ellenőrzi az interfészhez kötést, és elindítja a motor `--version` parancsát. Nem tárcsáz VPN-t és nem küld tesztadatot a C6-nak. Ezután az addon várakozva fut tovább; ez szándékos, nem lefagyás.
+Csak olyan távoli hálózatot adj meg, amelyet jogosult vagy vizsgálni.
+A sikeres keresés egyszer lefut, a proxy nem indul el, a VPN lezárul,
+a leállás ekkor rendeltetésszerű. A naplóban keresd a `SCAN_HOST`,
+`C6_CANDIDATE`, `SCAN_DONE` sorokat. A `9999` nyitott port csak jelölt,
+nem bizonyítja az adapter típusát. A program nem választ címet automatikusan.
 
-A `CONFIG_PPP=n` továbbra is igaz lehet a HA OS-re, de ez az új motor számára nem követelmény. Ha még a régi `/dev/ppp`-hibát látod, nem az új `main.py`/Docker-kép fut.
+## Visszatérés az átjáróhoz
 
-## 5. Csak sikeres diagnosztika után
+Az azonosított C6-címet az `adapter_ip` mezőbe írd, és állítsd:
 
-A [részletes beállítások](l2tp_ipsec_client/DOCS.md) szerint add meg helyben a VPN-adatokat, majd válts `diagnostics_only: false` értékre. Az ebusd beállításait addig ne módosítsd, amíg a `VPN_UP` és a `PROXY_READY` nincs meg.
+```yaml
+connection_mode: proxy
+ike_trace: false
+```
 
-Az első próbát a már működő amd64 HA-n célszerű végezni. Az `aarch64` manifestengedély bekerült, de az ARM-építés és működés nincs igazolva; a 32 bites ARM nem támogatott.
+Az addon alapportja nem változott. Ne tedd ki az internetre. Az ebusd
+beállítását csak a tényleges C6-cím azonosítása és a VPN-siker után módosítsd.

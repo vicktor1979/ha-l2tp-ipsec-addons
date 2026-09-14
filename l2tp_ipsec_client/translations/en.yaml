@@ -17,7 +17,7 @@ configuration:
     description: The separately configured L2TP/IPsec shared key.
   adapter_ip:
     name: Remote C6 IPv4 address
-    description: The adapter address reachable over VPN. Only this /32 is routed.
+    description: Required only in proxy mode; may be empty for VPN test/discovery.
   adapter_port:
     name: Adapter TCP port
     description: Default 9999. The local addon relay always listens on container port
@@ -42,5 +42,20 @@ configuration:
     name: Allowed TCP clients
     description: IPv4/CIDR list. For another HA host, add its local IPv4 address with
       /32.
+  connection_mode:
+    name: Operation mode
+    description: 'proxy: known adapter; vpn_test: VPN login only; discover: one-shot
+      scan. Test/scan exit on completion.'
+  discovery_networks:
+    name: Remote discovery networks
+    description: Discover mode only. Authorized remote CIDR, e.g. 192.168.50.0/24.
+      Maximum 1024 addresses; never guessed.
+  discovery_ports:
+    name: TCP discovery ports
+    description: Default 9999, 80, 443. Connect/close only, no application requests.
+  ike_trace:
+    name: IKE header diagnostics
+    description: Handshake send/receive metadata only. No payloads, PSK, passwords,
+      identities or hashes logged.
 network:
   9999/tcp: C6 TCP relay. Publish only for another trusted HA host, never to the Internet.

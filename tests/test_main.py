@@ -21,6 +21,7 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "l2tp_ipsec_client"))
 spec = importlib.util.spec_from_file_location("c6_gateway", ROOT / "l2tp_ipsec_client/main.py")
 m = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = m
@@ -186,7 +187,7 @@ class PreflightTests(Base):
 
     def test_mocked_success_closes_tun_and_starts_only_version(self):
         runner = mock.Mock()
-        runner.command.return_value = subprocess.CompletedProcess([], 0, "c6-vpn-engine 0.2.0; test", "")
+        runner.command.return_value = subprocess.CompletedProcess([], 0, "c6-vpn-engine 0.2.1; test", "")
         interface = struct.pack("16sH22x", b"c6diag0", 0)
         with mock.patch.object(m.os, "open", return_value=95), \
              mock.patch.object(m.os, "fstat", return_value=types.SimpleNamespace(st_mode=stat.S_IFCHR)), \
@@ -205,7 +206,7 @@ class PreflightTests(Base):
              mock.patch.object(m.os, "fstat", return_value=types.SimpleNamespace(st_mode=stat.S_IFCHR)), \
              mock.patch.object(m.fcntl, "ioctl", return_value=struct.pack("16sH22x", b"test", 0)), \
              mock.patch.object(m.os, "close"), mock.patch.object(m.socket, "socket"):
-            with self.assertRaisesRegex(RuntimeError, "0.2.0"):
+            with self.assertRaisesRegex(RuntimeError, "0.2.1"):
                 m.tun_preflight(runner)
 
     def test_diagnostic_needs_no_password_and_never_connects(self):
@@ -354,7 +355,7 @@ class PackagingTests(Base):
     def test_manifest_is_constrained(self):
         import yaml
         cfg = yaml.safe_load((ROOT / "l2tp_ipsec_client/config.yaml").read_text())
-        self.assertEqual(cfg["version"], "0.2.0")
+        self.assertEqual(cfg["version"], "0.2.1")
         self.assertEqual(cfg["slug"], "l2tp_ipsec_client")
         for key in ("host_network", "full_access", "kernel_modules"):
             self.assertFalse(cfg[key])
